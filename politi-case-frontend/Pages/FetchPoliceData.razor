@@ -1,0 +1,163 @@
+﻿@page "/fetchpolicedata"
+@inject HttpClient Http
+<!-- _Imports.razor -->
+<head>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Audiowide">
+</head>
+
+<PageTitle>Police Car Status</PageTitle>
+
+<h1 style="font-family: 'Audiowide', sans-serif;">Police Car Status</h1>
+
+
+@if (policeCars == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Merke</th>
+                <th>Modell</th>
+                <th>Årsmodell</th>
+                <th>RegNr</th>
+                <th>Status</th>
+                <th>Oppdrag</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var car in policeCars)
+            {
+                var index = Array.IndexOf(policeCars, car);
+                <tr>
+                    <td>@car.Id</td>
+                    <td>@car.Merke</td>
+                    <td>@car.Modell</td>
+                    <td>@car.Årsmodell</td>
+                    <td>@car.RegNr</td>
+                    <td>
+                        @if (isEditable[index])
+                        {
+                            <input @bind="car.Status" />
+                        }
+                        else
+                        {
+                            @car.Status
+                        }
+                    </td>
+                    <td>
+                        @if (isEditable[index])
+                        {
+                            <input @bind="car.Oppdrag" />
+                        }
+                        else
+                        {
+                            @car.Oppdrag
+                        }
+                    </td>          
+                    <td>
+                        @if (isEditable[index])
+                        {
+                            <button @onclick="() => SaveChanges(car.Id, car.Status, car.Oppdrag, index)">Save</button>
+                            <button @onclick="() => DiscardChanges(index)">Discard</button> <!-- New Discard Changes button -->
+                        }
+                        else
+                        {
+                            <button @onclick="() => EditRow(index)">Edit</button>
+                        }
+                        <button @onclick="() => DeleteCar(car.Id)">Delete</button> <!-- New delete button -->
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <!-- Section for adding a new car -->
+    <div>
+        <h3>Add New Car</h3>
+        <label>Merke</label>
+        <input @bind="newCar.Merke" placeholder="Merke" />
+        <label>Modell</label>
+        <input @bind="newCar.Modell" placeholder="Modell" />
+        <label>Årsmodell</label>
+        <input @bind="newCar.Årsmodell" placeholder="Årsmodell" />
+        <label>RegNr</label>
+        <input @bind="newCar.RegNr" placeholder="RegNr" />
+        <label>Status</label>
+        <input @bind="newCar.Status" placeholder="Status" />
+        <label>Oppdrag</label>
+        <input @bind="newCar.Oppdrag" placeholder="Oppdrag" />
+        <button @onclick="AddNewCar">Add Car</button>
+    </div>
+}
+
+@code {
+    private PoliceCar[]? policeCars;
+    private bool[] isEditable;
+    private PoliceCar newCar = new PoliceCar(); // New field for the new car
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        policeCars = await Http.GetFromJsonAsync<PoliceCar[]>("https://localhost:7028/PoliceCars");
+        isEditable = new bool[policeCars.Length];
+    }
+
+    private void EditRow(int index)
+    {
+        isEditable[index] = true;
+    }
+
+    private async Task SaveChanges(int id, string? status, string? oppdrag, int index)
+    {
+        if (status != null)
+        {
+            var responseStatus = await Http.PutAsJsonAsync($"https://localhost:7028/PoliceCars/{id}/Status", status);
+        }
+        if (oppdrag != null)
+        {
+            var responseMission = await Http.PutAsJsonAsync($"https://localhost:7028/PoliceCars/{id}/Mission", oppdrag);
+        }
+
+        // Refresh the data
+        policeCars = await Http.GetFromJsonAsync<PoliceCar[]>("https://localhost:7028/PoliceCars");
+        isEditable[index] = false;
+    }
+
+    private void DiscardChanges(int index)
+    {
+        isEditable[index] = false;
+    }
+
+    private async Task AddNewCar()
+    {
+        var response = await Http.PostAsJsonAsync("https://localhost:7028/PoliceCars", newCar);
+        newCar = new PoliceCar(); // Reset the new car field
+        await LoadData(); // Refresh the data
+    }
+
+    private async Task DeleteCar(int id)
+    {
+        var response = await Http.DeleteAsync($"https://localhost:7028/PoliceCars/{id}");
+        await LoadData(); // Refresh the data
+    }
+
+    public class PoliceCar
+    {
+        public int Id { get; set; }
+        public string? Merke { get; set; }
+        public string? Modell { get; set; }
+        public int Årsmodell { get; set; }
+        public string? RegNr { get; set; }
+        public string? Status { get; set; }
+        public string? Oppdrag { get; set; }
+    }
+}
